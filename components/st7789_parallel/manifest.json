@@ -2,9 +2,9 @@
   "name": "st7789_parallel",
   "version": "1.0.0",
   "esphome_version": "2023.5.0",
-  "dependencies": [],
   "files": [
     "__init__.py",
     "display.cpp",
     "display.h"
   ]
+}
