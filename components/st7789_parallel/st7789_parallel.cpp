@@ -1,73 +1,79 @@
-#include "st7789_parallel.h"
-#include "esp_lcd_panel_interface.h"
-#include "esp_lcd_panel_ops.h"
-#include "esp_lcd_panel_vendor.h"
+#include "st7789v3_parallel.h"
 
-#define LCD_DC     5
-#define LCD_WR     6
-#define LCD_CS     4
-#define LCD_RST    3
-#define LCD_RD     7
+#define LCD_WR   GPIO_NUM_6
+#define LCD_RD   GPIO_NUM_7
+#define LCD_DC   GPIO_NUM_5
+#define LCD_CS   GPIO_NUM_4
+#define LCD_RES  GPIO_NUM_3
 
-#define LCD_D0     8
-#define LCD_D1     9
-#define LCD_D2     10
-#define LCD_D3     11
-#define LCD_D4     12
-#define LCD_D5     13
-#define LCD_D6     14
-#define LCD_D7     15
+#define LCD_D0   GPIO_NUM_8
 
-esp_lcd_panel_handle_t panel_handle = NULL;
+void ST7789V3Parallel::setup() {
+  gpio_set_direction(LCD_WR, GPIO_MODE_OUTPUT);
+  gpio_set_direction(LCD_RD, GPIO_MODE_OUTPUT);
+  gpio_set_direction(LCD_DC, GPIO_MODE_OUTPUT);
+  gpio_set_direction(LCD_CS, GPIO_MODE_OUTPUT);
+  gpio_set_direction(LCD_RES, GPIO_MODE_OUTPUT);
 
-void ST7789ParallelDisplay::setup() {
-  esp_lcd_i80_bus_handle_t i80_bus = NULL;
+  gpio_set_level(LCD_RD, 1);
+  gpio_set_level(LCD_CS, 0);
+  gpio_set_level(LCD_RES, 1);
 
-  esp_lcd_i80_bus_config_t bus_config = {
-    .dc_gpio_num = LCD_DC,
-    .wr_gpio_num = LCD_WR,
-    .data_gpio_nums = {LCD_D0, LCD_D1, LCD_D2, LCD_D3, LCD_D4, LCD_D5, LCD_D6, LCD_D7},
-    .bus_width = 8,
-    .max_transfer_bytes = 320 * 100 * sizeof(uint16_t),
-  };
-  ESP_ERROR_CHECK(esp_lcd_new_i80_bus(&bus_config, &i80_bus));
-
-  esp_lcd_panel_io_handle_t io_handle = NULL;
-  esp_lcd_panel_io_i80_config_t io_config = {
-    .cs_gpio_num = LCD_CS,
-    .pclk_hz = 10 * 1000 * 1000,
-    .trans_queue_depth = 10,
-    .lcd_cmd_bits = 8,
-    .lcd_param_bits = 8,
-    .dc_levels = {
-      .dc_idle_level = 0,
-      .dc_cmd_level = 0,
-      .dc_dummy_level = 0,
-      .dc_data_level = 1,
-    },
-  };
-  ESP_ERROR_CHECK(esp_lcd_new_panel_io_i80(i80_bus, &io_config, &io_handle));
-
-  esp_lcd_panel_dev_config_t panel_config = {
-    .reset_gpio_num = LCD_RST,
-    .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
-    .bits_per_pixel = 16,
-  };
-  ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
-  ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-  ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
-  ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
-}
-
-void ST7789ParallelDisplay::update() {
-  // Fill screen with red for testing
-  static uint16_t color_data[170 * 320];
-  for (int i = 0; i < 170 * 320; ++i) {
-    color_data[i] = 0xF800; // RGB565 red
+  for (int i = 0; i < 8; i++) {
+    gpio_set_direction((gpio_num_t)(LCD_D0 + i), GPIO_MODE_OUTPUT);
   }
-  ESP_ERROR_CHECK(esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, 170, 320, color_data));
+
+  // Reset sequence
+  gpio_set_level(LCD_RES, 0);
+  delay(50);
+  gpio_set_level(LCD_RES, 1);
+  delay(120);
+
+  // Initialization sequence
+  write_command(0x11); delay(120);
+  write_command(0x3A); write_data(0x55);
+  write_command(0x36); write_data(0x00);
+  write_command(0x21);
+  write_command(0xB2); write_data(0x0C); write_data(0x0C); write_data(0x00); write_data(0x33); write_data(0x33);
+  write_command(0xB7); write_data(0x35);
+  write_command(0xBB); write_data(0x2B);
+  write_command(0xC0); write_data(0x2C);
+  write_command(0xC2); write_data(0x01);
+  write_command(0xC3); write_data(0x0B);
+  write_command(0xC4); write_data(0x20);
+  write_command(0xC6); write_data(0x0F);
+  write_command(0xD0); write_data(0xA4); write_data(0xA1);
+  write_command(0xE0);
+  write_data(0xD0); write_data(0x04); write_data(0x0D); write_data(0x11); write_data(0x13);
+  write_data(0x2B); write_data(0x3F); write_data(0x54); write_data(0x4C); write_data(0x18);
+  write_data(0x0D); write_data(0x0B); write_data(0x1F); write_data(0x23);
+  write_command(0xE1);
+  write_data(0xD0); write_data(0x04); write_data(0x0C); write_data(0x11); write_data(0x13);
+  write_data(0x2C); write_data(0x3F); write_data(0x44); write_data(0x51); write_data(0x2F);
+  write_data(0x1F); write_data(0x1F); write_data(0x20); write_data(0x23);
+  write_command(0x29);
 }
 
-void ST7789ParallelDisplay::draw_pixel(int x, int y, esphome::Color color) {
-  // Optional: implement per-pixel drawing if needed
+void ST7789V3Parallel::loop() {
+  // Optional: refresh logic
+}
+
+void ST7789V3Parallel::write_bus(uint8_t value) {
+  for (int i = 0; i < 8; i++) {
+    gpio_set_level((gpio_num_t)(LCD_D0 + i), (value >> i) & 0x01);
+  }
+}
+
+void ST7789V3Parallel::write_command(uint8_t cmd) {
+  gpio_set_level(LCD_DC, 0);
+  write_bus(cmd);
+  gpio_set_level(LCD_WR, 0);
+  gpio_set_level(LCD_WR, 1);
+}
+
+void ST7789V3Parallel::write_data(uint8_t data) {
+  gpio_set_level(LCD_DC, 1);
+  write_bus(data);
+  gpio_set_level(LCD_WR, 0);
+  gpio_set_level(LCD_WR, 1);
 }
