@@ -1,11 +1,12 @@
 #include "esphome.h"
-#include "esphome/components/display/display_buffer.h"
 
-class ST7789ParallelDisplay : public esphome::display::DisplayBuffer {
+class ST7789V3Parallel : public Component {
  public:
   void setup() override;
-  void update() override;
-  void draw_pixel(int x, int y, esphome::Color color) override;
-  int get_width() override { return 170; }
-  int get_height() override { return 320; }
+  void loop() override;
+
+ private:
+  void write_bus(uint8_t value);
+  void write_command(uint8_t cmd);
+  void write_data(uint8_t data);
 };
