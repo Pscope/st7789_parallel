@@ -6,7 +6,7 @@ from esphome.const import CONF_ID
 DEPENDENCIES = ['spi']
 
 st7789_parallel_ns = cg.esphome_ns.namespace('st7789_parallel')
-ST7789Parallel = st7789_parallel_ns.class_('ST7789Parallel', cg.Component)
+ST7789Parallel = st7789_parallel_ns.class_('ST7789Parallel', cg.Component, display.DisplayBuffer)
 
 CONFIG_SCHEMA = display.FULL_DISPLAY_SCHEMA.extend({
     cv.GenerateID(): cv.declare_id(ST7789Parallel),
